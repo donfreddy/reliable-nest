@@ -148,7 +148,7 @@ packages/nest       NestJS integration: ReliableModule, decorators, CLS binding
 
 ## Failure Semantics
 
-Every failure mode the design accounts for is enumerated in [`docs/failure-matrix.md`](docs/failure-matrix.md), each row pinned to a named test. As of the last update to this README, **14 of 16 scenarios have a real test running against a Testcontainers Postgres instance**; the rest are listed as owed, not silently dropped. A sample:
+Every failure mode the design accounts for is enumerated in [`docs/failure-matrix.md`](docs/failure-matrix.md), each row pinned to a named test. **All 16 scenarios now have a real test**, including one (F5) that kills a real, separately-spawned Node process with `SIGKILL` mid-handler rather than simulating a crash. A sustained-load chaos run (10k messages, 3 workers, random kills) is still owed; see the matrix for exactly what that does and doesn't cover. A sample:
 
 | Scenario | Guarantee |
 | --- | --- |
@@ -187,7 +187,7 @@ Three concepts, never conflated: see [`docs/identity-model.md`](docs/identity-mo
 | [**nestarc/outbox**](https://github.com/nestarc/outbox) | ✅ | ❌ | ⚠️ (free-form metadata, not enforced) | ❌ (explicit `tx` param) | ✅ | ❌ | ❌ (Prisma only) |
 | [**nestjs-inbox-outbox**](https://github.com/Nestixis/nestjs-inbox-outbox) (Nestixis) | ✅ | ✅ | ❌ | ❌ (explicit entities) | ❌ (plain polling) | ❌ | ✅ (TypeORM/MikroORM/Prisma) |
 | [**@nest-native/messaging**](https://github.com/nest-native/messaging) | ✅ | ✅ | ❌ (undocumented) | ✅ (`@nestjs-cls/transactional`) | ⚠️ (undocumented internals) | ❌ | ❌ (Drizzle only, by design) |
-| **@reliable/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | 🟡 14/16 scenarios, Postgres-verified (see [failure-matrix.md](docs/failure-matrix.md)) | 🟡 raw SQL + Drizzle at the storage layer; TypeORM/Prisma/Kysely still roadmap, and `ReliablePublisher` is pg-specific for now |
+| **@reliable/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | ✅ 16/16 scenarios tested (1 via real process `SIGKILL`); sustained-load chaos run still owed (see [failure-matrix.md](docs/failure-matrix.md)) | 🟡 raw SQL + Drizzle at the storage layer; TypeORM/Prisma/Kysely still roadmap, and `ReliablePublisher` is pg-specific for now |
 
 Two observations, not verdicts:
 
