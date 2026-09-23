@@ -1,4 +1,4 @@
-import type { InboxStore, OutboxStore } from '@reliable/core';
+import type { FailureInfo, InboxStore, OutboxStore, ReliableMessage } from '@reliable/core';
 
 export interface ReliableWorkerOptions {
   readonly workerId?: string;
@@ -16,6 +16,15 @@ export interface ReliableModuleOptions {
   readonly shutdownTimeoutMs?: number;
   /** Opt-in escape hatch for `publish()` outside a transaction. Degrades the atomicity guarantee; off by default. */
   readonly allowOutsideTransaction?: boolean;
+  /**
+   * Called once a message reaches `dead` (its last attempt just exhausted
+   * `maxAttempts`). Errors thrown here are logged and swallowed: a broken
+   * hook must never crash the dispatcher loop or block other messages.
+   */
+  readonly onDeadLetter?: (
+    message: ReliableMessage,
+    error: FailureInfo,
+  ) => void | Promise<void>;
 }
 
 export const DEFAULT_WORKER_OPTIONS: Required<ReliableWorkerOptions> = {

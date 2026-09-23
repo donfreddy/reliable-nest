@@ -7,7 +7,7 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { deriveIdempotencyKey, LeaseLostError } from '@reliable/core';
-import type { MessageId, OutboxStore, ReliableMessage } from '@reliable/core';
+import type { FailureInfo, MessageId, OutboxStore, ReliableMessage } from '@reliable/core';
 import { ClsService } from 'nestjs-cls';
 import { ConsumerRegistry } from '../discovery/consumer-registry.js';
 import {
@@ -94,7 +94,7 @@ export class PollingDispatcher implements OnApplicationBootstrap, OnApplicationS
     const handler = this.registry.resolve(message.type);
     if (!handler) {
       this.logger.warn(`No @ReliableConsumer registered for type "${message.type}".`);
-      await this.outboxStore.markFailed(this.workerId, message.id, {
+      await this.failMessage(message, {
         message: `No consumer registered for type "${message.type}"`,
       });
       return;
@@ -117,9 +117,33 @@ export class PollingDispatcher implements OnApplicationBootstrap, OnApplicationS
       await this.cls.run(() => handler(message, tools));
       await this.outboxStore.markDelivered(this.workerId, message.id);
     } catch (error) {
-      await this.outboxStore.markFailed(this.workerId, message.id, {
+      await this.failMessage(message, {
         message: error instanceof Error ? error.message : String(error),
       });
+    }
+  }
+
+  /**
+   * `markFailed` returns whether the fenced transition happened, not which
+   * status it landed on. Since `attempts` is incremented at lease time
+   * (never concurrently changed while this worker holds the lease), the
+   * leased `message.attempts` is exactly the value the store's own
+   * `attempts >= max_attempts` check used, so this reproduces its verdict
+   * without an extra round-trip or touching the core port's return type.
+   */
+  private async failMessage(message: ReliableMessage, error: FailureInfo): Promise<void> {
+    const fenced = await this.outboxStore.markFailed(this.workerId, message.id, error);
+    if (!fenced) return; // lease was already lost; not ours to report on.
+
+    // maxAttempts is optional on the wire type (ReliableEvent) but always
+    // set on a persisted message; the store defaults it to 10 if the
+    // caller omitted it at publish() time.
+    if (message.attempts >= (message.maxAttempts ?? 10)) {
+      try {
+        await this.options.onDeadLetter?.(message, error);
+      } catch (hookError) {
+        this.logger.error(`onDeadLetter hook threw: ${String(hookError)}`);
+      }
     }
   }
 

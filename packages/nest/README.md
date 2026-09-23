@@ -36,6 +36,11 @@ ReliableModule.forRoot({
   outboxStore: new PostgresOutboxStore(pool, new Uuidv7Generator()),
   inboxStore: new PostgresInboxStore(pool),
   worker: { pollIntervalMs: 500, leaseTtlMs: 30_000 },
+  onDeadLetter: (message, error) => {
+    // Fired once a message exhausts maxAttempts and lands in `dead`.
+    // Log it, page someone, write it to a dead-letter table: your call.
+    logger.error(`dead-lettered ${message.type} (${message.id}): ${error.message}`);
+  },
 });
 ```
 
