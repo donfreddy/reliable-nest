@@ -178,21 +178,21 @@ Three concepts, never conflated: see [`docs/identity-model.md`](docs/identity-mo
 
 ## Comparison With Existing Solutions
 
-*Verified by reading each project's source and docs; not guessed. Revisit before trusting this table on anything load-bearing, since these projects move.*
+*Reflects the publicly available implementations reviewed for this README as of September 2026: observable behavior and documented APIs, not claims about project direction. Libraries evolve; re-check before treating any single cell as still current.*
 
 | | Outbox in-TX | Inbox | Deterministic `idempotencyKey` | Transparent CLS binding | Lease + fencing dispatcher | Tested failure-mode contract | Multi-ORM |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **pg-boss** (v10+) | ✅ (explicit connection) | ❌ | ❌ | ❌ | ✅ | ❌ | N/A |
-| **nestjs-transactional** | ⚠️ (CQRS event registry) | ❌ | ❌ | ✅ (own AsyncLocalStorage) | ❌ | ❌ | N/A (TypeORM only) |
-| **nestarc/outbox** | ✅ | ❌ | ⚠️ (free-form metadata, not enforced) | ❌ (explicit `tx` param) | ✅ | ❌ | ❌ (Prisma only) |
-| **nestjs-inbox-outbox** (Nestixis) | ✅ | ✅ | ❌ | ❌ (explicit entities) | ❌ (plain polling) | ❌ | ✅ (TypeORM/MikroORM/Prisma) |
-| **@nest-native/messaging** | ✅ | ✅ | ❌ (undocumented) | ✅ (`@nestjs-cls/transactional`) | ⚠️ (undocumented internals) | ❌ | ❌ (Drizzle only, by design) |
+| [**pg-boss**](https://github.com/timgit/pg-boss) (v10+) | ✅ (explicit connection) | ❌ | ❌ | ❌ | ✅ | ❌ | N/A |
+| [**nestjs-transactional**](https://github.com/igorgolovanov/nestjs-transactional) | ⚠️ (CQRS event registry) | ❌ | ❌ | ✅ (own AsyncLocalStorage) | ❌ | ❌ | N/A (TypeORM only) |
+| [**nestarc/outbox**](https://github.com/nestarc/outbox) | ✅ | ❌ | ⚠️ (free-form metadata, not enforced) | ❌ (explicit `tx` param) | ✅ | ❌ | ❌ (Prisma only) |
+| [**nestjs-inbox-outbox**](https://github.com/Nestixis/nestjs-inbox-outbox) (Nestixis) | ✅ | ✅ | ❌ | ❌ (explicit entities) | ❌ (plain polling) | ❌ | ✅ (TypeORM/MikroORM/Prisma) |
+| [**@nest-native/messaging**](https://github.com/nest-native/messaging) | ✅ | ✅ | ❌ (undocumented) | ✅ (`@nestjs-cls/transactional`) | ⚠️ (undocumented internals) | ❌ | ❌ (Drizzle only, by design) |
 | **@reliable/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | 🟡 10/16 scenarios, Postgres-verified (see [failure-matrix.md](docs/failure-matrix.md)) | 🟡 raw SQL + Drizzle at the storage layer; TypeORM/Prisma/Kysely still roadmap, and `ReliablePublisher` is pg-specific for now |
 
-Two honest conclusions:
+Two observations, not verdicts:
 
-1. **Atomic publication alone is not a differentiator.** If that's all you need, use `pg-boss` or `nestarc/outbox` instead: they're more mature on exactly that axis.
-2. **`@nest-native/messaging` is the closest neighbor.** Same stack, Outbox *and* Inbox, transparent CLS binding. It does not (yet, publicly) formalize a deterministic `idempotencyKey` contract or a tested failure-mode matrix. If it closes that gap, this table gets rewritten.
+1. **Atomic publication alone is not a differentiator.** The reviewed `pg-boss` and `nestarc/outbox` implementations already cover it, more maturely than this project does on that axis alone.
+2. **`@nest-native/messaging` is the closest neighbor.** Same stack, Outbox *and* Inbox, transparent CLS binding. The reviewed implementation does not (yet, publicly) expose a deterministic `idempotencyKey` contract or a tested failure-mode matrix. If that changes, this table gets updated.
 
 ---
 
