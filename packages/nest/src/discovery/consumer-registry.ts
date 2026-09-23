@@ -1,13 +1,7 @@
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
-import type { ReliableMessage } from '@reliable/core';
+import type { HandlerTools, ReliableMessage } from '@reliable/core';
 import { RELIABLE_CONSUMER_METADATA } from '../decorators/reliable-consumer.decorator.js';
-
-export interface HandlerTools {
-  idempotencyKey(effectName: string): string;
-  heartbeat(): Promise<void>;
-  readonly signal: AbortSignal;
-}
 
 export type ConsumerHandlerFn = (
   message: ReliableMessage,

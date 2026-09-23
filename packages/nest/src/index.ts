@@ -14,7 +14,8 @@ export type {
 
 export { ReliableConsumer, RELIABLE_CONSUMER_METADATA } from './decorators/reliable-consumer.decorator.js';
 export { ConsumerRegistry } from './discovery/consumer-registry.js';
-export type { HandlerTools, ConsumerHandlerFn } from './discovery/consumer-registry.js';
+export type { ConsumerHandlerFn } from './discovery/consumer-registry.js';
+export type { HandlerTools } from '@reliable/core';
 
 export { PollingDispatcher } from './dispatcher/polling-dispatcher.js';
 
