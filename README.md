@@ -5,10 +5,13 @@
 > Outbox and Inbox as one transactional unit, a deterministic `idempotencyKey` contract for external APIs, and a failure-mode matrix verified against a real Postgres instance, not asserted in a README.
 
 [![CI](https://github.com/donfreddy/reliable-nest/actions/workflows/ci.yml/badge.svg)](https://github.com/donfreddy/reliable-nest/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/%40reliablejs%2Fnest)](https://www.npmjs.com/package/@reliablejs/nest)
 [![Status: MVP](https://img.shields.io/badge/status-MVP-orange)](#status)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Not yet published to npm. Use from the workspace (see [Development](#development)) until it is.
+```bash
+pnpm add @reliablejs/nest @reliablejs/postgres @reliablejs/core
+```
 
 ---
 
