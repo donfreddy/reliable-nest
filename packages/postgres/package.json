@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./drizzle": {
+      "types": "./dist/drizzle/index.d.ts",
+      "default": "./dist/drizzle/index.js"
     }
   },
   "files": ["dist", "migrations"],
@@ -23,10 +27,19 @@
     "@reliable/core": "workspace:*",
     "pg": "^8.13.1"
   },
+  "peerDependencies": {
+    "drizzle-orm": "^0.44.0 || ^0.45.0"
+  },
+  "peerDependenciesMeta": {
+    "drizzle-orm": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@testcontainers/postgresql": "^10.16.0",
     "@types/node": "^22.10.7",
     "@types/pg": "^8.11.10",
+    "drizzle-orm": "^0.45.3",
     "typescript": "^5.7.3",
     "vitest": "^2.1.9"
   }

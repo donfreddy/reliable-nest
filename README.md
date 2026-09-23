@@ -187,7 +187,7 @@ Three concepts, never conflated: see [`docs/identity-model.md`](docs/identity-mo
 | **nestarc/outbox** | ✅ | ❌ | ⚠️ (free-form metadata, not enforced) | ❌ (explicit `tx` param) | ✅ | ❌ | ❌ (Prisma only) |
 | **nestjs-inbox-outbox** (Nestixis) | ✅ | ✅ | ❌ | ❌ (explicit entities) | ❌ (plain polling) | ❌ | ✅ (TypeORM/MikroORM/Prisma) |
 | **@nest-native/messaging** | ✅ | ✅ | ❌ (undocumented) | ✅ (`@nestjs-cls/transactional`) | ⚠️ (undocumented internals) | ❌ | ❌ (Drizzle only, by design) |
-| **@reliable/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | 🟡 11/16 scenarios, Postgres-verified (see [failure-matrix.md](docs/failure-matrix.md)) | 🎯 roadmap (raw SQL now, TypeORM/Prisma/Kysely/Drizzle in v1) |
+| **@reliable/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | 🟡 11/16 scenarios, Postgres-verified (see [failure-matrix.md](docs/failure-matrix.md)) | 🟡 raw SQL + Drizzle at the storage layer; TypeORM/Prisma/Kysely still roadmap, and `ReliablePublisher` is pg-specific for now |
 
 Two honest conclusions:
 
