@@ -2,7 +2,7 @@
 
 > **Reliable side-effects for NestJS applications.**
 >
-> Atomic database mutations, at-least-once delivery, local deduplication, and external idempotency without manual transactional plumbing.
+> Outbox and Inbox as one transactional unit, a deterministic `idempotencyKey` contract for external APIs, and a failure-mode matrix that is tested in CI, not asserted in a README.
 
 [![Status: MVP](https://img.shields.io/badge/status-MVP-orange)](#status)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -531,6 +531,28 @@ See:
 
 ---
 
+# Comparison With Existing Solutions
+
+The Outbox pattern is well known and partially tooled already. Before evaluating `@reliable/nest`, know what already exists so you don't pay for a rewrite of something you can get today:
+
+| | Outbox in-TX | Inbox | Deterministic `idempotencyKey` | Transparent CLS binding | Lease + fencing dispatcher | Tested failure-mode contract | Multi-ORM |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **pg-boss** (v10+) | ✅ (explicit connection) | ❌ | ❌ | ❌ | ✅ | ❌ | N/A |
+| **nestjs-transactional** | ⚠️ (CQRS event registry) | ❌ | ❌ | ✅ (own AsyncLocalStorage) | ❌ | ❌ | N/A (TypeORM only) |
+| **nestarc/outbox** | ✅ | ❌ | ⚠️ (free-form metadata, not enforced) | ❌ (explicit `tx` param) | ✅ | ❌ | ❌ (Prisma only) |
+| **nestjs-inbox-outbox** (Nestixis) | ✅ | ✅ | ❌ | ❌ (explicit entities) | ❌ (plain polling) | ❌ | ✅ (TypeORM/MikroORM/Prisma) |
+| **@nest-native/messaging** | ✅ | ✅ | ❌ (undocumented) | ✅ (`@nestjs-cls/transactional`) | ⚠️ (undocumented internals) | ❌ | ❌ (Drizzle only, by design) |
+| **@reliable/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | ✅ (16 named scenarios, CI-green) | 🎯 roadmap (raw SQL/Drizzle now, TypeORM/Prisma/Kysely in v1) |
+
+Two honest conclusions from this table:
+
+1. **Atomic publication alone is not a differentiator.** `pg-boss` v10+ already enqueues inside a caller-supplied transaction, and `nestarc/outbox` already ships a serious lease/fencing/`SKIP LOCKED` dispatcher. If that's all you need, use one of those instead. They are more mature.
+2. **`@nest-native/messaging` is the closest neighbor.** It targets the same stack (`@nestjs-cls/transactional` + Drizzle) and already ships Outbox *and* Inbox with transparent CLS binding. It does not (yet, publicly) formalize a deterministic `idempotencyKey` contract or a tested failure-mode matrix as part of its guarantees, which is where `@reliable/nest` puts its weight. If it closes that gap, this table gets rewritten.
+
+`@reliable/nest` is not claiming to be the only Outbox/Inbox library for NestJS. It is claiming a narrower, checkable thing: the Outbox↔Inbox↔idempotency contract is a tested product surface, not an implementation detail left to each call site.
+
+---
+
 # Non-Goals
 
 `@reliable/nest` is intentionally **not**:
@@ -567,6 +589,8 @@ as one atomic operation.
 Reliable starts from the database transaction and makes the side-effect part of that transaction through the Outbox pattern.
 
 A queue can still be used later as a transport.
+
+Some existing libraries already solve the transactional-enqueue part of this (see [Comparison With Existing Solutions](#comparison-with-existing-solutions)). That alone is not why this project exists.
 
 The important boundary is:
 
@@ -704,4 +728,4 @@ reliable-nest/
 
 # License
 
-MIT
+[MIT](LICENSE) 
