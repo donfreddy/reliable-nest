@@ -31,6 +31,7 @@ export class PollingDispatcher implements OnApplicationBootstrap, OnApplicationS
   private readonly inFlight = new Map<MessageId, Promise<void>>();
   private timer: NodeJS.Timeout | undefined;
   private stopped = false;
+  private wakeTeardown: (() => void | Promise<void>) | undefined;
 
   constructor(
     @Inject(RELIABLE_OUTBOX_STORE) private readonly outboxStore: OutboxStore,
@@ -51,9 +52,21 @@ export class PollingDispatcher implements OnApplicationBootstrap, OnApplicationS
     return this.timer !== undefined;
   }
 
-  onApplicationBootstrap(): void {
+  async onApplicationBootstrap(): Promise<void> {
     if (this.options.worker === false) return;
+    if (this.options.wakeUp) {
+      this.wakeTeardown = await this.options.wakeUp(() => this.wakeNow());
+    }
     this.scheduleNextTick(0);
+  }
+
+  /** Cancels the pending timer and ticks immediately, then resumes the normal poll cadence. */
+  private wakeNow(): void {
+    if (this.stopped) return;
+    if (this.timer) clearTimeout(this.timer);
+    void this.tick()
+      .catch((error: unknown) => this.logger.error(`dispatcher tick failed: ${String(error)}`))
+      .finally(() => this.scheduleNextTick(this.workerConfig().pollIntervalMs));
   }
 
   private scheduleNextTick(delayMs: number): void {
@@ -150,6 +163,7 @@ export class PollingDispatcher implements OnApplicationBootstrap, OnApplicationS
   async onApplicationShutdown(): Promise<void> {
     this.stopped = true;
     if (this.timer) clearTimeout(this.timer);
+    await this.wakeTeardown?.();
     if (this.options.worker === false) return;
 
     const timeoutMs = this.options.shutdownTimeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;

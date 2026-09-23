@@ -12,10 +12,31 @@ src/
 ├── identity/     Uuidv7Generator (implements core's IdGenerator)
 ├── sql/          migrate(): applies migrations/*.sql, idempotent, no ORM runner
 ├── context.ts    bridges a pg connection to core's opaque ReliableContext
+├── notify/       PostgresListener + createPostgresWakeUp: optional LISTEN/NOTIFY latency shortcut
 └── drizzle/      DrizzleOutboxStore/DrizzleInboxStore, published at the
                   "@reliable/postgres/drizzle" subpath so raw-pg consumers
                   never pull drizzle-orm in as a dependency
 ```
+
+## LISTEN/NOTIFY (optional)
+
+```ts
+const outboxStore = new PostgresOutboxStore(pool, new Uuidv7Generator(), {
+  notifyChannel: 'reliable_outbox_wake',
+});
+```
+
+`enqueue` then runs `pg_notify` on the same connection as the insert, so
+Postgres only delivers it on commit and drops it on rollback: the wake
+signal inherits the enqueue's own atomicity for free. Pair with
+`createPostgresWakeUp(clientConfig, channel)` on `@reliable/nest`'s
+`ReliableModule.forRoot({ wakeUp: ... })` to cut dispatch latency below
+`pollIntervalMs`.
+
+This is a pure latency optimization. Nothing in either package requires
+it: if the channel is never configured, the listener connection drops, or
+`NOTIFY` is silently lost, delivery still happens on the next poll. See
+`docs/failure-matrix.md` F14.
 
 ## Drizzle adapter
 

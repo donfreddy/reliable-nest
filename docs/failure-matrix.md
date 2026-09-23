@@ -24,16 +24,24 @@ Source of truth for the scenarios themselves: CDC_Technique.md §3.4.
 | F11 | Clock drift between workers | A lease is judged expired incorrectly | Every time comparison uses Postgres `now()`, never `Date.now()` | Neutralized | `packages/postgres/test/outbox-store.spec.ts` ("F11") | done |
 | F12 | Multiple dispatcher instances | Concurrent access to the same batch | `FOR UPDATE SKIP LOCKED` disjoints the batches inside the same lease transaction | No double lease | `packages/postgres/test/outbox-store.spec.ts` ("F12") + `packages/postgres/bench/lease-throughput.ts` | done (correctness at 200 rows; throughput/index-size reference numbers at 1M rows in [`docs/benchmarks.md`](benchmarks.md)) |
 | F13 | Poison message (deterministic failure) | `attempts >= max_attempts` | Transition to `dead`, retries stop, `onDeadLetter` hook fires | Isolated, no infinite loop | `packages/postgres/test/outbox-store.spec.ts` ("F13") + `packages/nest/test/dead-letter.e2e.spec.ts` | done |
-| F14 | `NOTIFY` lost (no listener connected) | A pending message goes unsignaled | Polling remains the source of truth | Latency up, no loss | `F14_lost_notify_falls_back_to_polling` | owed (NOTIFY not wired yet) |
+| F14 | `NOTIFY` lost (no listener connected) | A pending message goes unsignaled | Polling remains the source of truth | Latency up, no loss | `packages/postgres/test/notify.spec.ts` + `packages/nest/test/notify-wakeup.e2e.spec.ts` | done |
 | F15 | Graceful shutdown (SIGTERM) | Messages leased in flight | `onApplicationShutdown`: stop polling, drain up to `shutdownTimeoutMs`, then release via `markFailed(..., retryAt: now)` | Immediate failover instead of waiting for lease expiry | `packages/nest/test/shutdown.e2e.spec.ts` | done |
 | F16 | Disk saturation / table bloat | Dispatcher slows down | Batched purge of delivered rows + aggressive autovacuum | Controlled degradation | `packages/postgres/test/purge-under-bloat.spec.ts` | done (35k-row backlog; autovacuum tuning itself is a Postgres-config concern, not tested here) |
 
 ## What Etape 1 + Etape 2 actually cover
 
-13 of 16 rows (F1, F2, F3, F4, F6, F7, F8, F9, F10, F11, F12, F13, F15,
-F16) are real, CI-runnable tests against a Testcontainers Postgres 16
-instance and (for F2, F6, F7, F13's `onDeadLetter` half, F15) a real
-NestJS testing application, not mocks. Two remain genuinely owed:
+14 of 16 rows (F1, F2, F3, F4, F6, F7, F8, F9, F10, F11, F12, F13, F14,
+F15, F16) are real, CI-runnable tests against a Testcontainers Postgres 16
+instance and (for F2, F6, F7, F13's `onDeadLetter` half, F14, F15) a real
+NestJS testing application, not mocks. `LISTEN`/`NOTIFY` is implemented
+(`PostgresListener`, `createPostgresWakeUp`, `PostgresOutboxStore`'s
+`notifyChannel` option, `PollingDispatcher`'s store-agnostic `wakeUp`
+hook) as a genuine latency optimization, not a checkbox: F14's test
+proves both that a configured `wakeUp` delivers well under the poll
+interval, and that omitting it entirely still delivers, bounded by
+`pollIntervalMs`.
+
+One remains genuinely owed:
 
 - **F5** (worker crashes mid-handler, before the external call): needs an
   actual process crash to be meaningful, not a simulated one. F4 already
@@ -41,8 +49,6 @@ NestJS testing application, not mocks. Two remain genuinely owed:
   adds on top is "no external effect was emitted before the crash," which
   requires killing a real Node process mid-handler and checking from
   outside it, i.e. the chaos harness (Etape 3), not an in-process test.
-- **F14** (`NOTIFY` lost falls back to polling): `LISTEN`/`NOTIFY` is not
-  wired up at all yet. There's nothing to lose.
 
 The 1M-row benchmark named in the Etape 1 DoD is done, not gated in CI (it
 is a reference measurement, not a pass/fail correctness test): see

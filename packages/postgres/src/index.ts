@@ -8,3 +8,6 @@ export type {
   PostgresOutboxStoreOptions,
 } from './outbox/postgres-outbox-store.js';
 export { PostgresInboxStore } from './inbox/postgres-inbox-store.js';
+export { PostgresListener } from './notify/postgres-listener.js';
+export { createPostgresWakeUp } from './notify/wake-up.js';
+export { assertValidChannelName } from './notify/channel.js';

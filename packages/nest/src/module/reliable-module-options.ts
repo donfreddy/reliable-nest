@@ -25,6 +25,21 @@ export interface ReliableModuleOptions {
     message: ReliableMessage,
     error: FailureInfo,
   ) => void | Promise<void>;
+  /**
+   * Optional wake-up source for the poll loop, called once at bootstrap
+   * with a `wake()` function to invoke whenever a wake signal arrives
+   * (e.g. Postgres `LISTEN`/`NOTIFY` via `createPostgresWakeUp` from
+   * `@reliable/postgres`). Returns a teardown called at shutdown.
+   *
+   * Deliberately store-agnostic: the dispatcher only knows "something can
+   * tell me to check early." Polling remains the source of truth
+   * regardless of whether this is configured, or whether the underlying
+   * channel is ever lost (CDC_Technique.md F14): delivery still happens,
+   * just bounded by `pollIntervalMs` instead of near-instant.
+   */
+  readonly wakeUp?: (
+    wake: () => void,
+  ) => (() => void | Promise<void>) | Promise<() => void | Promise<void>>;
 }
 
 export const DEFAULT_WORKER_OPTIONS: Required<ReliableWorkerOptions> = {

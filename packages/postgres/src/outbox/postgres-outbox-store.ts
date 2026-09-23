@@ -10,6 +10,7 @@ import type {
 } from '@reliable/core';
 import type { Pool } from 'pg';
 import { fromReliableContext } from '../context.js';
+import { assertValidChannelName } from '../notify/channel.js';
 import type { OutboxRow } from './row-mapper.js';
 import { rowToMessage } from './row-mapper.js';
 
@@ -22,6 +23,16 @@ const DEFAULT_BACKOFF: BackoffOptions = { baseMs: 1_000, maxMs: 300_000 };
 
 export interface PostgresOutboxStoreOptions {
   readonly backoff?: BackoffOptions;
+  /**
+   * When set, `enqueue` also runs `pg_notify(channel, '')` on the SAME
+   * connection, inside the caller's transaction: Postgres delivers it only
+   * on commit and drops it on rollback, so the wake signal inherits the
+   * enqueue's own atomicity for free (CDC_Technique.md §4.6). Purely a
+   * latency optimization; pair with `createPostgresWakeUp` from
+   * `../notify/wake-up.js` on the listening side. Never required for
+   * correctness (F14): polling alone still delivers everything.
+   */
+  readonly notifyChannel?: string;
 }
 
 /**
@@ -32,6 +43,7 @@ export interface PostgresOutboxStoreOptions {
  */
 export class PostgresOutboxStore implements OutboxStore {
   private readonly backoff: BackoffOptions;
+  private readonly notifyChannel: string | undefined;
 
   constructor(
     private readonly pool: Pool,
@@ -39,6 +51,10 @@ export class PostgresOutboxStore implements OutboxStore {
     options: PostgresOutboxStoreOptions = {},
   ) {
     this.backoff = options.backoff ?? DEFAULT_BACKOFF;
+    if (options.notifyChannel !== undefined) {
+      assertValidChannelName(options.notifyChannel);
+    }
+    this.notifyChannel = options.notifyChannel;
   }
 
   async enqueue(
@@ -79,6 +95,12 @@ export class PostgresOutboxStore implements OutboxStore {
         [event.dedupKey],
       );
       ids.push(existing.rows[0]!.id);
+    }
+
+    if (this.notifyChannel !== undefined) {
+      // pg_notify's channel argument IS a bindable parameter (unlike
+      // LISTEN's), so no identifier-injection concern here.
+      await conn.query('SELECT pg_notify($1, $2)', [this.notifyChannel, '']);
     }
 
     return ids;
