@@ -12,12 +12,12 @@ Source of truth for the scenarios themselves: CDC_Technique.md §3.4.
 | # | Scenario | Observed state | Recovery mechanism | Guarantee | Test | Status |
 | - | -------- | --------------- | ------------------ | --------- | ---- | ------ |
 | F1 | Crash before producer COMMIT | Neither the mutation nor the outbox row exists | Native Postgres atomicity | Consistent, no effect | `packages/postgres/test/outbox-store.spec.ts` ("F1/F3") | done |
-| F2 | Crash after producer COMMIT, before dispatch | Mutation + pending row are persisted | Dispatcher picks it up on next poll | Delivered later (latency up) | `F2_crash_after_commit_before_dispatch` | owed (the poll loop exists now; no dedicated test yet, only implied by F1/F3 persistence + the happy-path lease test) |
+| F2 | Crash after producer COMMIT, before dispatch | Mutation + pending row are persisted | Dispatcher picks it up on next poll | Delivered later (latency up) | `packages/nest/test/crash-after-commit.e2e.spec.ts` | done |
 | F3 | Application rollback after `publish()` | Nothing persisted | Native Postgres atomicity | Consistent | `packages/postgres/test/outbox-store.spec.ts` ("F1/F3") | done |
 | F4 | Dispatcher crashes after lease, before calling the handler | Row `processing`, `leased_until` in the future | Lease expiry, `reclaimExpired()` returns it to `pending` | Redelivered, `attempts` already incremented | `packages/postgres/test/outbox-store.spec.ts` ("F4") | done |
 | F5 | Worker crashes mid-handler, before the external call | Same as F4 | Same as F4 | Redelivered, no external effect emitted | `F5_worker_crash_before_external_call` | owed (needs a handler harness, `@reliable/nest`) |
-| F6 | Network timeout on an external call: outcome unknown | The call may or may not have succeeded | Retry with the same `idempotencyKey`; the provider returns the original response | No double effect | `F6_external_timeout_unknown_outcome` | owed (needs a mocked provider) |
-| F7 | Crash after external call succeeds, before `markDelivered` | Row `processing`, external effect already happened | Redelivery + stable `idempotencyKey` | Single effect on the provider side | `F7_crash_after_external_success` | owed (needs a mocked provider) |
+| F6 | Network timeout on an external call: outcome unknown | The call may or may not have succeeded | Retry with the same `idempotencyKey`; the provider returns the original response | No double effect | `packages/nest/test/external-provider.e2e.spec.ts` | done |
+| F7 | Crash after external call succeeds, before `markDelivered` | Row `processing`, external effect already happened | Redelivery + stable `idempotencyKey` | Single effect on the provider side | `packages/nest/test/external-provider.e2e.spec.ts` | done |
 | F8 | Crash after consumer TX COMMIT, before ack | Inbox row present | Redelivery -> `ON CONFLICT DO NOTHING` -> 0 rows -> skip | No-op | `packages/postgres/test/inbox-store.spec.ts` ("F8") | done |
 | F9 | Crash before consumer TX COMMIT | No inbox row | Redelivery -> full replay | Correct | `packages/postgres/test/inbox-store.spec.ts` ("F9") | done |
 | F10 | GC pause / STW longer than the lease (zombie worker) | Two workers active on the same message | Fencing: `UPDATE ... WHERE leased_by = $me AND leased_until > now()` returns 0 rows, the zombie backs off | The second effect is absorbed by the inbox or the provider | `packages/postgres/test/outbox-store.spec.ts` ("F10") | done |
@@ -26,24 +26,32 @@ Source of truth for the scenarios themselves: CDC_Technique.md §3.4.
 | F13 | Poison message (deterministic failure) | `attempts >= max_attempts` | Transition to `dead`, retries stop, `onDeadLetter` hook fires | Isolated, no infinite loop | `packages/postgres/test/outbox-store.spec.ts` ("F13") + `packages/nest/test/dead-letter.e2e.spec.ts` | done |
 | F14 | `NOTIFY` lost (no listener connected) | A pending message goes unsignaled | Polling remains the source of truth | Latency up, no loss | `F14_lost_notify_falls_back_to_polling` | owed (NOTIFY not wired yet) |
 | F15 | Graceful shutdown (SIGTERM) | Messages leased in flight | `onApplicationShutdown`: stop polling, drain up to `shutdownTimeoutMs`, then release via `markFailed(..., retryAt: now)` | Immediate failover instead of waiting for lease expiry | `packages/nest/test/shutdown.e2e.spec.ts` | done |
-| F16 | Disk saturation / table bloat | Dispatcher slows down | Batched purge of delivered rows + aggressive autovacuum | Controlled degradation | `F16_purge_under_bloat` | owed (`purgeDelivered` exists, untested at scale) |
+| F16 | Disk saturation / table bloat | Dispatcher slows down | Batched purge of delivered rows + aggressive autovacuum | Controlled degradation | `packages/postgres/test/purge-under-bloat.spec.ts` | done (35k-row backlog; autovacuum tuning itself is a Postgres-config concern, not tested here) |
 
 ## What Etape 1 + Etape 2 actually cover
 
-10 of 16 rows (F1, F3, F4, F8, F9, F10, F11, F12, F13, F15) are real,
-CI-runnable tests against a Testcontainers Postgres 16 instance and (for
-F15, F13's `onDeadLetter` half) a real NestJS testing application, not
-mocks. The remaining 6 need pieces that do not exist yet: a mocked
-external provider (F6/F7), `LISTEN`/`NOTIFY` wiring (F14), and a
-poll-loop-under-load harness (F2) and bloat-scale purge test (F16). The
-1M-row benchmark named in the Etape 1 DoD is done, not gated in CI (it is
-a reference measurement, not a pass/fail correctness test): see
+13 of 16 rows (F1, F2, F3, F4, F6, F7, F8, F9, F10, F11, F12, F13, F15,
+F16) are real, CI-runnable tests against a Testcontainers Postgres 16
+instance and (for F2, F6, F7, F13's `onDeadLetter` half, F15) a real
+NestJS testing application, not mocks. Two remain genuinely owed:
+
+- **F5** (worker crashes mid-handler, before the external call): needs an
+  actual process crash to be meaningful, not a simulated one. F4 already
+  proves the lease-expiry-and-redelivery mechanics F5 depends on; what F5
+  adds on top is "no external effect was emitted before the crash," which
+  requires killing a real Node process mid-handler and checking from
+  outside it, i.e. the chaos harness (Etape 3), not an in-process test.
+- **F14** (`NOTIFY` lost falls back to polling): `LISTEN`/`NOTIFY` is not
+  wired up at all yet. There's nothing to lose.
+
+The 1M-row benchmark named in the Etape 1 DoD is done, not gated in CI (it
+is a reference measurement, not a pass/fail correctness test): see
 [`docs/benchmarks.md`](benchmarks.md).
 
 The identity layer feeding F6/F7 is already solid: `deriveIdempotencyKey` is
 property-tested in `packages/core/test/identity.spec.ts` (determinism,
 independence from the clock, distinction by `effectName` and by
-`messageId`). That is a prerequisite for F6/F7 to be meaningful, not a
+`messageId`). That is a prerequisite for F6/F7 being meaningful, not a
 replacement for them.
 
 ## Definition of done, restated
