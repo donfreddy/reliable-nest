@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Test
+        # packages/postgres and packages/nest spin up real Postgres
+        # containers via Testcontainers. Docker is available by default on
+        # GitHub-hosted ubuntu runners, no extra service setup needed.
+        run: pnpm -r test
+
+      - name: Architecture check (packages/core must stay dependency-free)
+        run: pnpm --filter @reliable/core check:arch

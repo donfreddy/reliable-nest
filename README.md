@@ -1,539 +1,184 @@
 # @reliable/nest
 
-> **Reliable side-effects for NestJS applications.**
+> **Make database transactions and side-effects reliable.**
 >
-> Outbox and Inbox as one transactional unit, a deterministic `idempotencyKey` contract for external APIs, and a failure-mode matrix that is tested in CI, not asserted in a README.
+> Outbox and Inbox as one transactional unit, a deterministic `idempotencyKey` contract for external APIs, and a failure-mode matrix verified against a real Postgres instance, not asserted in a README.
 
+[![CI](https://github.com/donfreddy/reliable-nest/actions/workflows/ci.yml/badge.svg)](https://github.com/donfreddy/reliable-nest/actions/workflows/ci.yml)
 [![Status: MVP](https://img.shields.io/badge/status-MVP-orange)](#status)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+Not yet published to npm. Use from the workspace (see [Development](#development)) until it is.
+
+---
+
+## Quick Start
+
+Publish inside the same transaction as the mutation it depends on:
+
+```ts
+@Injectable()
+class PayInvoice {
+  constructor(private readonly reliable: ReliablePublisher) {}
+
+  @Transactional()
+  async execute(invoiceId: string) {
+    await this.invoices.markAsPaid(invoiceId);
+
+    await this.reliable.publish({
+      type: 'invoice.paid',
+      key: invoiceId,
+      payload: { invoiceId },
+    });
+  }
+}
+```
+
+Consume it, forwarding a stable idempotency key to whatever external call the handler makes:
+
+```ts
+@Injectable()
+class SendReceipt {
+  @ReliableConsumer('invoice.paid')
+  async handle(message: ReliableMessage<{ invoiceId: string }>, tools: HandlerTools) {
+    await this.stripe.charge({
+      amount: message.payload.amount,
+      idempotencyKey: tools.idempotencyKey('stripe.charge'),
+    });
+  }
+}
+```
+
+What this buys you, without writing any of it yourself:
+
+* If `markAsPaid` succeeds but the transaction rolls back afterward, the message never existed. No orphaned outbox row.
+* If the process crashes after commit, the message survives and gets redelivered. No lost side-effect.
+* If `SendReceipt` crashes after Stripe accepts the charge but before its own work commits, the retry reuses the **same** `idempotencyKey`. Stripe recognizes it as the same operation instead of charging twice.
+
+Full wiring (module setup, `TransactionalAdapterPg`, inbox) is in [`packages/nest/README.md`](packages/nest/README.md).
 
 ---
 
 ## The Problem
 
-Backend applications frequently need to perform two things together:
-
-1. mutate application state in a database;
-2. trigger a side-effect such as an email, webhook, event, notification, or background operation.
-
-A typical implementation looks like this:
+A typical implementation of the example above looks like this:
 
 ```ts
 @Transactional()
 async payInvoice(invoiceId: string) {
   await this.invoices.markAsPaid(invoiceId);
-
-  await this.queue.add('send-receipt', {
-    invoiceId,
-  });
+  await this.queue.add('send-receipt', { invoiceId });
 }
 ```
 
-This creates a **dual-write problem**.
-
-### Failure A: side-effect happens, transaction rolls back
+This is a **dual-write**: two independent systems (the database and the queue) that can each succeed or fail on their own schedule.
 
 ```text
-DB mutation
-    ↓
-queue.add()
-    ↓
-message dispatched
-    ↓
-💥 transaction rolls back
+DB mutation                        DB mutation
+    ↓                                  ↓
+queue.add()                        DB COMMIT
+    ↓                                  ↓
+message dispatched                 💥 process crashes
+    ↓                                  ↓
+💥 transaction rolls back          queue.add() never happens
+
+  side-effect fired for              business state committed,
+  a mutation that never              side-effect silently
+  committed                          lost
 ```
 
-The external side-effect happened even though the business transaction did not commit.
-
-### Failure B: transaction commits, side-effect is lost
-
-```text
-DB mutation
-    ↓
-DB COMMIT
-    ↓
-💥 process crashes
-    ↓
-queue.add() never happens
-```
-
-The business state is committed, but the side-effect is lost.
-
-`@reliable/nest` solves this boundary by persisting the side-effect in the **same database transaction** as the business mutation.
+`@reliable/nest` closes this gap by persisting the side-effect in the **same database transaction** as the mutation, through the outbox pattern.
 
 ---
 
-# Guarantees
+## Guarantees
 
-`@reliable/nest` deliberately avoids vague distributed-systems guarantees.
-
-It does **not** promise global exactly-once execution.
-
-Instead, it provides several precise guarantees.
+`@reliable/nest` deliberately avoids vague distributed-systems guarantees. It does **not** promise global exactly-once execution. Instead:
 
 | Layer            | Guarantee              | Mechanism                                                                   |
-| ---------------- | ---------------------- | --------------------------------------------------------------------------- |
-| Publication      | **Atomic**             | Outbox row is committed in the same DB transaction as the business mutation |
-| Storage          | **Durable**            | Committed outbox messages remain persisted until acknowledged               |
-| Delivery         | **At-least-once**      | Lease-based dispatcher with retry                                           |
-| Local processing | **Deduplicated**       | Inbox keyed by `messageId`                                                  |
-| External APIs    | **Stable idempotency** | Deterministic `idempotencyKey` exposed to consumers                         |
-
-The resulting model is:
+| ---------------- | ----------------------- | ---------------------------------------------------------------------------------- |
+| Publication      | **Atomic**              | Outbox row committed in the same DB transaction as the business mutation           |
+| Storage          | **Durable**              | Committed outbox messages remain persisted until acknowledged                      |
+| Delivery         | **At-least-once**        | Lease-based dispatcher with retry                                                  |
+| Local processing | **Deduplicated**         | Inbox keyed by `messageId`, claim-only                                             |
+| External APIs    | **Stable idempotency**   | Deterministic `idempotencyKey` derived from `(messageId, effectName)`              |
 
 ```text
-Business mutation
-      +
-Outbox message
-      │
-      │ same DB transaction
-      ▼
-    COMMIT
-      │
-      ▼
- Durable message
-      │
-      ▼
- At-least-once delivery
-      │
-      ▼
- Local inbox / deduplication
-      │
-      ├── local DB effect
-      │       ↓
-      │    same transaction
-      │
-      └── external API
-              ↓
-        idempotencyKey
-```
-
----
-
-# Identity Model
-
-Reliable deliberately separates three different concepts.
-
-### `messageId`
-
-The unique identity of one persisted message.
-
-```text
-messageId = 01K...
-```
-
-It is used for:
-
-* message identity;
-* inbox deduplication;
-* tracing;
-* delivery tracking.
-
-### `key`
-
-An optional application/domain key.
-
-```ts
-key: invoiceId
-```
-
-It can be used for:
-
-* correlation;
-* ordering;
-* partitioning;
-* routing.
-
-It is **not** a message identity.
-
-Two messages may legitimately have the same `key`.
-
-### `idempotencyKey`
-
-A stable key derived from the persisted `messageId`.
-
-```text
-messageId
-    ↓
-idempotencyKey
-```
-
-It exists primarily so consumers can forward the same identity to external APIs that support idempotent operations.
-
-Therefore:
-
-```text
-messageId     ≠ key ≠ idempotencyKey
-```
-
----
-
-# Architecture
-
-The project is intentionally split into three strictly decoupled layers.
-
-```text
-                    ┌─────────────────────┐
-                    │    packages/core    │
-                    │                     │
-                    │  Pure TS contracts  │
-                    │  Domain primitives  │
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │ packages/postgres   │
-                    │                     │
-                    │ SQL / Outbox /      │
-                    │ Inbox / Dispatcher  │
-                    │ Lease management    │
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │    packages/nest    │
-                    │                     │
-                    │ NestJS integration  │
-                    │ Decorators / DI     │
-                    │ Transaction binding │
-                    └─────────────────────┘
-```
-
-## `packages/core`
-
-Zero runtime dependencies.
-
-No:
-
-* NestJS
-* PostgreSQL
-* ORM
-* Redis
-* Kafka
-* decorators
-* framework-specific abstractions
-
-Contains only domain contracts and primitives:
-
-```text
-core/
-└── src/
-    ├── types/
-    │   ├── event.ts
-    │   ├── message.ts
-    │   ├── context.ts
-    │   ├── delivery.ts
-    │   └── identity.ts
-    ├── ports/
-    │   ├── outbox-store.ts
-    │   └── inbox-store.ts
-    ├── errors/
-    └── index.ts
-```
-
-The core defines **what Reliable means**, not how it is implemented.
-
----
-
-# `packages/postgres`
-
-PostgreSQL implementation of the core ports.
-
-The implementation is SQL-oriented and does not require a specific ORM.
-
-```text
-postgres/
-└── src/
-    ├── outbox/
-    ├── inbox/
-    ├── dispatcher/
-    ├── lease/
-    ├── sql/
-    └── index.ts
-```
-
-Responsibilities include:
-
-* PostgreSQL outbox storage;
-* PostgreSQL inbox storage;
-* message claiming;
-* `FOR UPDATE SKIP LOCKED`;
-* leases;
-* lease renewal;
-* retry scheduling;
-* delivery state;
-* SQL migrations.
-
-The initial implementation targets PostgreSQL.
-
-ORM-specific integrations can be layered on top without changing the core contracts.
-
----
-
-# `packages/nest`
-
-NestJS integration.
-
-```text
-nest/
-└── src/
-    ├── decorators/
-    │   └── reliable-consumer.decorator.ts
-    ├── module/
-    ├── discovery/
-    ├── transaction/
-    └── index.ts
-```
-
-Responsibilities include:
-
-* `ReliableModule`;
-* `@ReliableConsumer()`;
-* NestJS dependency injection;
-* consumer discovery;
-* binding to `@nestjs-cls/transactional`;
-* exposing the Reliable publisher to application services.
-
-Transaction context management itself is **not implemented by Reliable**.
-
-Reliable composes with:
-
-```text
-@nestjs-cls/transactional
-```
-
----
-
-# Transaction Boundary
-
-The fundamental producer invariant is:
-
-```text
-Business mutation
-       +
-Reliable publish()
-       │
-       ▼
-   SAME DB TX
-       │
-       ▼
-     COMMIT
-```
-
-Example:
-
-```ts
-@Transactional()
-async payInvoice(invoiceId: string) {
-  await this.invoices.markAsPaid(invoiceId);
-
-  await this.reliable.publish({
-    type: 'invoice.paid',
-    key: invoiceId,
-    payload: {
-      invoiceId,
-    },
-  });
-}
-```
-
-If the transaction rolls back:
-
-```text
-business mutation -> rollback
-outbox message    -> rollback
-```
-
-If it commits:
-
-```text
-business mutation -> committed
-outbox message    -> committed
-```
-
-The MVP intentionally requires an active compatible transaction.
-
-There is no `publishOutsideTransaction()` API in v0.
-
----
-
-# Consumer Semantics
-
-A consumer processes a message through an Inbox boundary.
-
-For local database effects, the desired transaction is:
-
-```text
-BEGIN
-
-INSERT inbox(messageId)
-
-perform business mutation
-
-COMMIT
-```
-
-If the consumer fails:
-
-```text
-BEGIN
-
-INSERT inbox(messageId)
-
-perform business mutation
+Business mutation + Outbox message  →  COMMIT (same TX)
         ↓
-       💥
-
-ROLLBACK
+   Durable message
+        ↓
+   At-least-once delivery
+        ↓
+   ┌─── local DB effect ──── same transaction (Inbox)
+   └─── external API ─────── idempotencyKey
 ```
-
-This means the Inbox record and the local business effect share the same transaction.
-
-For external APIs, this guarantee cannot be extended beyond the database boundary.
 
 ---
 
-# External Side-Effects
+## Why Not Just a Queue, or an Existing Outbox Library?
 
-Consider:
+Several things already exist and are worth knowing about before reaching for this package:
 
-```ts
-@ReliableConsumer({ type: 'invoice.paid' })
-async handle(
-  payload: InvoicePaidPayload,
-  ctx: ReliableContext,
-) {
-  await this.stripe.charge(
-    payload.amount,
-    {
-      idempotencyKey: ctx.idempotencyKey,
-    },
-  );
-}
-```
+* **`pg-boss` (v10+)** already enqueues inside a caller-supplied transaction.
+* **`nestarc/outbox`** already ships a serious lease/fencing/`SKIP LOCKED` dispatcher.
+* **`@nest-native/messaging`** already does Outbox *and* Inbox with transparent CLS binding, on the same `@nestjs-cls/transactional` + Drizzle stack.
 
-If the process crashes after Stripe succeeds but before the local Inbox transaction commits:
+If atomic publication or Outbox+Inbox alone is what you need, some of those are more mature than this project. `@reliable/nest` is not trying to replace your queue, and it is not claiming to be the only Outbox/Inbox library for NestJS.
 
-```text
-Stripe
-  │
-  ├── charge succeeds
-  │
-  └── process crashes
-
-Inbox
-  │
-  └── transaction rolls back
-```
-
-The message is retried.
-
-Therefore the consumer must use the supplied `idempotencyKey` with an external provider **when that provider supports idempotent requests**.
-
-Reliable provides the stable identity.
-
-The external provider remains responsible for enforcing its own idempotency semantics.
+What none of the above formalize is the narrower thing this project is actually about: **a deterministic `idempotencyKey` contract and a failure-mode matrix, verified against a real database, as part of the product surface** rather than left to each call site. See [Comparison With Existing Solutions](#comparison-with-existing-solutions) for the detailed, sourced breakdown.
 
 ---
 
-# Dispatcher
+## How It Works
 
-The PostgreSQL dispatcher uses row-level locking and leases.
-
-Conceptually:
-
-```sql
-SELECT *
-FROM reliable_outbox
-WHERE
-  status = 'pending'
-  AND (
-    leased_until IS NULL
-    OR leased_until < NOW()
-  )
-ORDER BY created_at
-FOR UPDATE SKIP LOCKED
-LIMIT $1;
-```
-
-A worker claims a message with a lease:
+Three strictly decoupled layers:
 
 ```text
-leased_by   = worker-id
-leased_until = now + lease-duration
+packages/core       pure TS contracts, zero runtime dependencies
+      ↓
+packages/postgres   raw-SQL implementation: outbox, inbox, lease, fencing
+      ↓
+packages/nest       NestJS integration: ReliableModule, decorators, CLS binding
 ```
 
-The lease prevents another worker from processing the same message concurrently.
-
-If the worker crashes:
-
-```text
-processing
-    │
-    ▼
-lease expires
-    │
-    ▼
-eligible for redelivery
-```
-
-A long-running consumer may renew its lease while processing.
-
-The lease is therefore a **recovery mechanism**, not a delivery guarantee.
+`core` defines what Reliable means, not how it's implemented. `postgres` never depends on NestJS. `nest` composes with [`@nestjs-cls/transactional`](https://github.com/Papooch/nestjs-cls) rather than owning transaction propagation itself. Full depth in [`docs/architecture.md`](docs/architecture.md).
 
 ---
 
-# Failure Semantics
+## Failure Semantics
 
-Reliable is designed around explicit failure modes.
+Every failure mode the design accounts for is enumerated in [`docs/failure-matrix.md`](docs/failure-matrix.md), each row pinned to a named test. As of the last update to this README, **11 of 16 scenarios have a real test running against a Testcontainers Postgres instance**; the rest are listed as owed, not silently dropped. A sample:
 
-### Process crashes before transaction commit
+| Scenario | Guarantee |
+| --- | --- |
+| Crash before the producer's transaction commits | No outbox row exists. Consistent. |
+| Dispatcher crashes after leasing, before the handler runs | Lease expires, message is reclaimed and redelivered. |
+| Two dispatcher instances run concurrently | `FOR UPDATE SKIP LOCKED` partitions the batch; zero double-leases. |
+| A worker is fenced out after a GC pause | It can no longer mutate the row; the new owner can. |
+| A handler fails past `max_attempts` | Message moves to `dead`, stops retrying. |
 
-```text
-Business mutation: rollback
-Outbox message: rollback
-```
-
-No side-effect is dispatched.
-
-### Process crashes after transaction commit
-
-```text
-Business mutation: committed
-Outbox message: committed
-```
-
-The message remains durable and can be redelivered.
-
-### Worker crashes during processing
-
-```text
-processing
-    ↓
-worker crashes
-    ↓
-lease expires
-    ↓
-message becomes claimable
-```
-
-The message may be delivered again.
-
-### Consumer crashes after external API success
-
-The Inbox transaction may roll back.
-
-The message may be retried.
-
-External provider idempotency is therefore required when duplicate external execution would be harmful.
-
-See:
-
-[`docs/guarantees-and-failure-modes.md`](docs/guarantees-and-failure-modes.md)
+The matrix, not this table, is the source of truth for current status. For the full prose walkthrough of these semantics, see [`docs/guarantees-and-failure-modes.md`](docs/guarantees-and-failure-modes.md).
 
 ---
 
-# Comparison With Existing Solutions
+## Identity Model
 
-The Outbox pattern is well known and partially tooled already. Before evaluating `@reliable/nest`, know what already exists so you don't pay for a rewrite of something you can get today:
+Three concepts, never conflated: see [`docs/identity-model.md`](docs/identity-model.md) for the full model and an idempotency-per-destination cookbook (HTTP, S3, email, broker, search index, filesystem).
+
+| | Scope | Stability |
+| --- | --- | --- |
+| `messageId` | Internal, globally unique | Immutable across retries |
+| `key` | Application/domain, not unique | Whatever the caller means by it |
+| `idempotencyKey` | External, per call site | Deterministic: `derive(messageId, effectName)` |
+
+`key` is never a deduplication identity: two different messages (`invoice.paid`, `invoice.refunded`) can share the same `key`.
+
+---
+
+## Comparison With Existing Solutions
+
+*Verified by reading each project's source and docs; not guessed. Revisit before trusting this table on anything load-bearing, since these projects move.*
 
 | | Outbox in-TX | Inbox | Deterministic `idempotencyKey` | Transparent CLS binding | Lease + fencing dispatcher | Tested failure-mode contract | Multi-ORM |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -542,192 +187,72 @@ The Outbox pattern is well known and partially tooled already. Before evaluating
 | **nestarc/outbox** | ✅ | ❌ | ⚠️ (free-form metadata, not enforced) | ❌ (explicit `tx` param) | ✅ | ❌ | ❌ (Prisma only) |
 | **nestjs-inbox-outbox** (Nestixis) | ✅ | ✅ | ❌ | ❌ (explicit entities) | ❌ (plain polling) | ❌ | ✅ (TypeORM/MikroORM/Prisma) |
 | **@nest-native/messaging** | ✅ | ✅ | ❌ (undocumented) | ✅ (`@nestjs-cls/transactional`) | ⚠️ (undocumented internals) | ❌ | ❌ (Drizzle only, by design) |
-| **@reliable/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | ✅ (16 named scenarios, CI-green) | 🎯 roadmap (raw SQL/Drizzle now, TypeORM/Prisma/Kysely in v1) |
+| **@reliable/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | 🟡 11/16 scenarios, Postgres-verified (see [failure-matrix.md](docs/failure-matrix.md)) | 🎯 roadmap (raw SQL now, TypeORM/Prisma/Kysely/Drizzle in v1) |
 
-Two honest conclusions from this table:
+Two honest conclusions:
 
-1. **Atomic publication alone is not a differentiator.** `pg-boss` v10+ already enqueues inside a caller-supplied transaction, and `nestarc/outbox` already ships a serious lease/fencing/`SKIP LOCKED` dispatcher. If that's all you need, use one of those instead. They are more mature.
-2. **`@nest-native/messaging` is the closest neighbor.** It targets the same stack (`@nestjs-cls/transactional` + Drizzle) and already ships Outbox *and* Inbox with transparent CLS binding. It does not (yet, publicly) formalize a deterministic `idempotencyKey` contract or a tested failure-mode matrix as part of its guarantees, which is where `@reliable/nest` puts its weight. If it closes that gap, this table gets rewritten.
-
-`@reliable/nest` is not claiming to be the only Outbox/Inbox library for NestJS. It is claiming a narrower, checkable thing: the Outbox↔Inbox↔idempotency contract is a tested product surface, not an implementation detail left to each call site.
+1. **Atomic publication alone is not a differentiator.** If that's all you need, use `pg-boss` or `nestarc/outbox` instead: they're more mature on exactly that axis.
+2. **`@nest-native/messaging` is the closest neighbor.** Same stack, Outbox *and* Inbox, transparent CLS binding. It does not (yet, publicly) formalize a deterministic `idempotencyKey` contract or a tested failure-mode matrix. If it closes that gap, this table gets rewritten.
 
 ---
 
-# Non-Goals
+## Non-Goals
 
 `@reliable/nest` is intentionally **not**:
 
 * an exactly-once framework;
-* a general-purpose Redis job queue;
-* a replacement for BullMQ;
-* a workflow engine;
-* a Saga implementation;
+* a general-purpose Redis job queue, or a replacement for BullMQ;
+* a workflow engine or a Saga implementation;
 * a replacement for Kafka or RabbitMQ;
-* a transaction manager;
-* a distributed lock service.
+* a transaction manager, or a distributed lock service.
 
-The goal is narrower:
-
-> **Make application side-effects coherent with database transactions and safely retryable.**
+> **Make application side-effects coherent with database transactions and safely retryable.** That's the whole scope.
 
 ---
 
-# Why Not Just Use a Queue?
+## Status
 
-Queues solve message delivery.
+**MVP / Experimental.** Validating one hypothesis: would NestJS developers prefer a small, composable reliability layer for transactional side-effects over building Outbox + Inbox + retry + idempotency plumbing themselves? The API and guarantees may change before v1.0. Feedback from experienced NestJS/backend engineers is especially valuable.
 
-They do not automatically solve:
-
-```text
-DB transaction
-      +
-message publication
-```
-
-as one atomic operation.
-
-Reliable starts from the database transaction and makes the side-effect part of that transaction through the Outbox pattern.
-
-A queue can still be used later as a transport.
-
-Some existing libraries already solve the transactional-enqueue part of this (see [Comparison With Existing Solutions](#comparison-with-existing-solutions)). That alone is not why this project exists.
-
-The important boundary is:
-
-```text
-Application DB
-     │
-     ▼
-Reliable Outbox
-     │
-     ▼
-Dispatcher / Transport
-```
+CI runs build, typecheck, the full test suite (Testcontainers Postgres, no mocks), and the `@reliable/core` zero-dependency architecture check on every push. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ---
 
-# Why Compose With `@nestjs-cls/transactional`?
+## Development
 
-Reliable does not need to own transaction propagation.
-
-`@nestjs-cls/transactional` already provides the transaction context abstraction.
-
-Reliable consumes that capability to ensure:
-
-```text
-@Transactional()
-      │
-      ├── business DB operations
-      │
-      └── reliable.publish()
-              │
-              ▼
-         same transaction
-```
-
-This keeps responsibilities separate.
-
----
-
-# PostgreSQL Schema
-
-The MVP uses two primary tables:
-
-```text
-PostgreSQL
-│
-├── application tables
-│
-├── reliable_outbox
-│
-└── reliable_inbox
-```
-
-The exact schema is maintained as explicit SQL migrations.
-
-No runtime schema generation is performed by Reliable.
-
-The application remains in control of its migration lifecycle.
-
----
-
-# Status
-
-**MVP / Experimental**
-
-This project is currently validating one hypothesis:
-
-> **Would NestJS developers prefer a small, composable reliability layer for transactional side-effects instead of implementing Outbox + Inbox + retry + idempotency plumbing themselves?**
-
-The API and guarantees may change before v1.0.
-
-Feedback from experienced NestJS/backend engineers is especially valuable.
-
----
-
-# Development
-
-Requirements:
-
-* Node.js
-* pnpm
-* PostgreSQL
-
-Install dependencies:
+Requirements: Node.js 22+, pnpm, Docker (for the Testcontainers-based test suites).
 
 ```bash
 pnpm install
-```
-
-Build all packages:
-
-```bash
 pnpm build
-```
-
-Run tests:
-
-```bash
-pnpm test
+pnpm test       # spins up real Postgres containers for packages/postgres and packages/nest
 ```
 
 ---
 
-# Repository Structure
+## Repository Structure
 
 ```text
 reliable-nest/
-│
 ├── packages/
-│   ├── core/
-│   │   └── Pure TypeScript contracts
-│   │
-│   ├── postgres/
-│   │   └── PostgreSQL implementation
-│   │
-│   └── nest/
-│       └── NestJS integration
-│
+│   ├── core/       pure TypeScript contracts, zero runtime dependencies
+│   ├── postgres/   raw-SQL outbox/inbox/dispatcher implementation
+│   └── nest/       NestJS module, decorators, TransactionalAdapterPg
 ├── docs/
 │   ├── architecture.md
 │   ├── guarantees-and-failure-modes.md
 │   ├── failure-matrix.md
 │   └── identity-model.md
-│
-├── tests/
-│
+├── .github/workflows/ci.yml
 ├── README.md
 ├── CONTRIBUTING.md
 ├── SECURITY.md
 ├── CHANGELOG.md
-├── LICENSE
-├── package.json
-├── pnpm-workspace.yaml
-└── tsconfig.base.json
+└── LICENSE
 ```
 
 ---
 
-# License
+## License
 
-[MIT](LICENSE) 
+[MIT](LICENSE)
