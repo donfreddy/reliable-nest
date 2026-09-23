@@ -7,7 +7,7 @@ import type {
   ReliableContext,
   ReliableEvent,
   ReliableMessage,
-} from '@reliable/core';
+} from '@reliablejs/core';
 import type { Pool } from 'pg';
 import { fromReliableContext } from '../context.js';
 import { assertValidChannelName } from '../notify/channel.js';

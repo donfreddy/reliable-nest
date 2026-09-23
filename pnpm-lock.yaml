@@ -28,10 +28,10 @@ importers:
 
   packages/nest:
     dependencies:
-      '@reliable/core':
+      '@reliablejs/core':
         specifier: workspace:^
         version: link:../core
-      '@reliable/postgres':
+      '@reliablejs/postgres':
         specifier: workspace:^
         version: link:../postgres
     devDependencies:
@@ -83,7 +83,7 @@ importers:
 
   packages/postgres:
     dependencies:
-      '@reliable/core':
+      '@reliablejs/core':
         specifier: workspace:^
         version: link:../core
       pg:

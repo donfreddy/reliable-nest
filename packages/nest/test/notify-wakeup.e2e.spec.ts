@@ -6,7 +6,7 @@ import {
   Uuidv7Generator,
   createPostgresWakeUp,
   toReliableContext,
-} from '@reliable/postgres';
+} from '@reliablejs/postgres';
 import type { Pool } from 'pg';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ReliableConsumer, ReliableModule } from '../src/index.js';

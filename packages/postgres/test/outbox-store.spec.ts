@@ -1,4 +1,4 @@
-import type { ReliableEvent } from '@reliable/core';
+import type { ReliableEvent } from '@reliablejs/core';
 import type { Pool } from 'pg';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { toReliableContext } from '../src/context.js';

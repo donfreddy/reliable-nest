@@ -1,4 +1,4 @@
-import type { FailureInfo, InboxStore, OutboxStore, ReliableMessage } from '@reliable/core';
+import type { FailureInfo, InboxStore, OutboxStore, ReliableMessage } from '@reliablejs/core';
 
 export interface ReliableWorkerOptions {
   readonly workerId?: string;
@@ -29,7 +29,7 @@ export interface ReliableModuleOptions {
    * Optional wake-up source for the poll loop, called once at bootstrap
    * with a `wake()` function to invoke whenever a wake signal arrives
    * (e.g. Postgres `LISTEN`/`NOTIFY` via `createPostgresWakeUp` from
-   * `@reliable/postgres`). Returns a teardown called at shutdown.
+   * `@reliablejs/postgres`). Returns a teardown called at shutdown.
    *
    * Deliberately store-agnostic: the dispatcher only knows "something can
    * tell me to check early." Polling remains the source of truth

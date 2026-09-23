@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
-import { NoTransactionContextError } from '@reliable/core';
-import type { MessageId, OutboxStore, ReliableEvent } from '@reliable/core';
-import { toReliableContext } from '@reliable/postgres';
+import { NoTransactionContextError } from '@reliablejs/core';
+import type { MessageId, OutboxStore, ReliableEvent } from '@reliablejs/core';
+import { toReliableContext } from '@reliablejs/postgres';
 import type { ReliableModuleOptions } from '../module/reliable-module-options.js';
 import { RELIABLE_MODULE_OPTIONS, RELIABLE_OUTBOX_STORE } from '../tokens.js';
 import type { TransactionalAdapterPg } from './transactional-adapter-pg.js';

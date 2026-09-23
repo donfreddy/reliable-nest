@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
-import { PostgresOutboxStore, Uuidv7Generator, toReliableContext } from '@reliable/postgres';
+import { PostgresOutboxStore, Uuidv7Generator, toReliableContext } from '@reliablejs/postgres';
 import type { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PollingDispatcher, ReliableModule } from '../src/index.js';

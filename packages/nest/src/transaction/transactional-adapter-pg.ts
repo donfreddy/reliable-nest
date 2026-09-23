@@ -3,7 +3,7 @@ import type {
   TransactionalAdapter,
   TransactionalAdapterOptions,
 } from '@nestjs-cls/transactional';
-import type { PgQueryable } from '@reliable/postgres';
+import type { PgQueryable } from '@reliablejs/postgres';
 import type { Pool, PoolClient } from 'pg';
 
 export interface PgTransactionOptions {
@@ -20,7 +20,7 @@ export interface TransactionalAdapterPgOptions {
  *
  * No official adapter for plain `pg` exists upstream: only Prisma, TypeORM,
  * Drizzle, Kysely, Knex, Mongoose/MongoDB, and pg-promise do. This fills
- * that gap for the raw-SQL path @reliable/nest's MVP targets (see
+ * that gap for the raw-SQL path @reliablejs/nest's MVP targets (see
  * CDC_Technique.md §2.2). `getFallbackInstance` returns the `Pool` itself,
  * so `TransactionHost.tx` is always at least query-able, even outside a
  * transaction; `ReliablePublisher` still fails fast in that case (see

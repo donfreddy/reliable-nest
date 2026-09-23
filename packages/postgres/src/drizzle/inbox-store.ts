@@ -1,4 +1,4 @@
-import type { InboxStore, MessageId, ReliableContext } from '@reliable/core';
+import type { InboxStore, MessageId, ReliableContext } from '@reliablejs/core';
 import { sql } from 'drizzle-orm';
 import { fromReliableContext } from './context.js';
 import type { DrizzleQueryable } from './context.js';

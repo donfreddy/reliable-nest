@@ -1,7 +1,7 @@
-# @reliable/nest
+# @reliablejs/nest
 
-NestJS integration for [`@reliable/core`](../core) and
-[`@reliable/postgres`](../postgres). `ReliableModule`, `ReliablePublisher`,
+NestJS integration for [`@reliablejs/core`](../core) and
+[`@reliablejs/postgres`](../postgres). `ReliableModule`, `ReliablePublisher`,
 `@ReliableConsumer()`, and a raw-`pg` adapter for
 [`@nestjs-cls/transactional`](https://github.com/Papooch/nestjs-cls).
 
@@ -9,7 +9,7 @@ NestJS integration for [`@reliable/core`](../core) and
 
 `@nestjs-cls/transactional` ships adapters for Prisma, TypeORM, Drizzle,
 Kysely, Knex, Mongoose/MongoDB, and pg-promise, but **not for raw `pg`**.
-Since `@reliable/postgres` is raw SQL by design (CDC_Technique.md §2.2),
+Since `@reliablejs/postgres` is raw SQL by design (CDC_Technique.md §2.2),
 `TransactionalAdapterPg` (in `src/transaction/`) fills that gap: it opens a
 `BEGIN`/`COMMIT`/`ROLLBACK` on a checked-out `PoolClient` for the outer
 transaction, and a `SAVEPOINT` for nested ones.

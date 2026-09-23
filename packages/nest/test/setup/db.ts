@@ -1,4 +1,4 @@
-import { migrate } from '@reliable/postgres';
+import { migrate } from '@reliablejs/postgres';
 import { Pool } from 'pg';
 
 let sharedPool: Pool | undefined;

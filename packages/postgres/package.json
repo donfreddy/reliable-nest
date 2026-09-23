@@ -1,7 +1,7 @@
 {
-  "name": "@reliable/postgres",
+  "name": "@reliablejs/postgres",
   "version": "0.1.0",
-  "description": "PostgreSQL implementation of @reliable/core: outbox, inbox, lease, dispatcher.",
+  "description": "PostgreSQL implementation of @reliablejs/core: outbox, inbox, lease, dispatcher.",
   "type": "module",
   "license": "MIT",
   "author": "Don Freddy",
@@ -39,7 +39,7 @@
     "bench": "tsx bench/lease-throughput.ts"
   },
   "dependencies": {
-    "@reliable/core": "workspace:^",
+    "@reliablejs/core": "workspace:^",
     "pg": "^8.13.1"
   },
   "peerDependencies": {

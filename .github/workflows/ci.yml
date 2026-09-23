@@ -34,4 +34,4 @@ jobs:
         run: pnpm -r test
 
       - name: Architecture check (packages/core must stay dependency-free)
-        run: pnpm --filter @reliable/core check:arch
+        run: pnpm --filter @reliablejs/core check:arch

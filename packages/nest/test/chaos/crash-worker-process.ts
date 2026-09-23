@@ -11,7 +11,7 @@ import 'reflect-metadata';
 import { Injectable, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ClsPluginTransactional } from '@nestjs-cls/transactional';
-import { PostgresOutboxStore, Uuidv7Generator } from '@reliable/postgres';
+import { PostgresOutboxStore, Uuidv7Generator } from '@reliablejs/postgres';
 import { ClsModule } from 'nestjs-cls';
 import { Pool } from 'pg';
 import {

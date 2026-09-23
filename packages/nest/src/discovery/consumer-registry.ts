@@ -1,6 +1,6 @@
 import { Inject, Injectable, type OnApplicationBootstrap } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
-import type { HandlerTools, ReliableMessage } from '@reliable/core';
+import type { HandlerTools, ReliableMessage } from '@reliablejs/core';
 import { RELIABLE_CONSUMER_METADATA } from '../decorators/reliable-consumer.decorator.js';
 
 export type ConsumerHandlerFn = (

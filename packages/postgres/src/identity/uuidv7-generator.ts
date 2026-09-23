@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { IdGenerator, MessageId } from '@reliable/core';
+import type { IdGenerator, MessageId } from '@reliablejs/core';
 
 /**
  * Generates UUIDv7 message ids: a 48-bit big-endian millisecond timestamp

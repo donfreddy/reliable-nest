@@ -7,7 +7,7 @@ import type {
   ReliableContext,
   ReliableEvent,
   ReliableMessage,
-} from '@reliable/core';
+} from '@reliablejs/core';
 import { sql } from 'drizzle-orm';
 import { execute, fromReliableContext } from './context.js';
 import type { DrizzleQueryable } from './context.js';

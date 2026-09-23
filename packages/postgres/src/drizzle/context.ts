@@ -1,4 +1,4 @@
-import type { ReliableContext } from '@reliable/core';
+import type { ReliableContext } from '@reliablejs/core';
 import type { SQL } from 'drizzle-orm';
 
 export interface DrizzleQueryResult {
@@ -20,7 +20,7 @@ export interface DrizzleQueryable {
 /**
  * Wraps a Drizzle connection (a `NodePgDatabase` or the transaction object
  * passed into `db.transaction(tx => ...)`) as the opaque `ReliableContext`
- * core's ports expect. In `@reliable/nest`, an app wiring
+ * core's ports expect. In `@reliablejs/nest`, an app wiring
  * `@nestjs-cls/transactional-adapter-drizzle-orm` would wrap
  * `TransactionHost.tx` with this before calling `enqueue`.
  */

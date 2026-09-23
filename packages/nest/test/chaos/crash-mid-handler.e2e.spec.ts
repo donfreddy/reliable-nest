@@ -1,6 +1,6 @@
 import { fork, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { PostgresOutboxStore, Uuidv7Generator, toReliableContext } from '@reliable/postgres';
+import { PostgresOutboxStore, Uuidv7Generator, toReliableContext } from '@reliablejs/postgres';
 import type { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getTestPool, resetTables } from '../setup/db.js';

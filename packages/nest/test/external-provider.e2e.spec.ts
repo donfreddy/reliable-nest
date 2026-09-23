@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
-import type { HandlerTools } from '@reliable/core';
-import { PostgresOutboxStore, Uuidv7Generator, toReliableContext } from '@reliable/postgres';
+import type { HandlerTools } from '@reliablejs/core';
+import { PostgresOutboxStore, Uuidv7Generator, toReliableContext } from '@reliablejs/postgres';
 import type { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReliableConsumer, ReliableModule } from '../src/index.js';

@@ -7,7 +7,7 @@ const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
   dependencies?: Record<string, string>;
 };
 
-describe('@reliable/core package manifest', () => {
+describe('@reliablejs/core package manifest', () => {
   it('declares zero runtime dependencies', () => {
     expect(Object.keys(pkg.dependencies ?? {})).toEqual([]);
   });

@@ -1,4 +1,4 @@
-import type { ReliableEvent } from '@reliable/core';
+import type { ReliableEvent } from '@reliablejs/core';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Pool } from 'pg';

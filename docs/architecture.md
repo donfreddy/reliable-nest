@@ -1,6 +1,6 @@
 # Architecture
 
-`@reliable/nest` provides reliability semantics for application side-effects.
+`@reliablejs/nest` provides reliability semantics for application side-effects.
 
 Its core responsibility is to make the following relationship explicit and durable:
 
@@ -44,7 +44,7 @@ The repository is split into three packages:
 
 ```text
                     ┌───────────────────┐
-                    │   @reliable/core  │
+                    │   @reliablejs/core  │
                     │                   │
                     │  domain contracts │
                     │  ports             │
@@ -54,7 +54,7 @@ The repository is split into three packages:
                  ┌────────────┴────────────┐
                  │                         │
         ┌────────┴────────┐      ┌─────────┴─────────┐
-        │ @reliable/      │      │ @reliable/nest    │
+        │ @reliablejs/      │      │ @reliablejs/nest    │
         │ postgres        │      │                   │
         │                 │      │ NestJS integration│
         │ SQL persistence │      │ DI / decorators  │
@@ -63,7 +63,7 @@ The repository is split into three packages:
         └─────────────────┘      └───────────────────┘
 ```
 
-### `@reliable/core`
+### `@reliablejs/core`
 
 Pure TypeScript contracts.
 
@@ -82,7 +82,7 @@ The package should have zero runtime dependencies.
 
 ---
 
-### `@reliable/postgres`
+### `@reliablejs/postgres`
 
 PostgreSQL implementation of the reliability primitives.
 
@@ -100,7 +100,7 @@ Responsibilities include:
 
 ---
 
-### `@reliable/nest`
+### `@reliablejs/nest`
 
 NestJS integration.
 
@@ -740,7 +740,7 @@ The concrete adapter is responsible for ensuring that these operations execute a
 
 # 16. PostgreSQL Adapter
 
-`@reliable/postgres` implements the core ports.
+`@reliablejs/postgres` implements the core ports.
 
 Its responsibilities include:
 
@@ -877,7 +877,7 @@ In particular:
 * `core` must never import PostgreSQL drivers.
 * `core` must never import an ORM.
 * `postgres` must never depend on NestJS decorators or modules.
-* NestJS integration must remain in `@reliable/nest`.
+* NestJS integration must remain in `@reliablejs/nest`.
 
 ---
 

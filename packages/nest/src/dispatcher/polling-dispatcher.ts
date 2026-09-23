@@ -6,8 +6,8 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { deriveIdempotencyKey, LeaseLostError } from '@reliable/core';
-import type { FailureInfo, MessageId, OutboxStore, ReliableMessage } from '@reliable/core';
+import { deriveIdempotencyKey, LeaseLostError } from '@reliablejs/core';
+import type { FailureInfo, MessageId, OutboxStore, ReliableMessage } from '@reliablejs/core';
 import { ClsService } from 'nestjs-cls';
 import { ConsumerRegistry } from '../discovery/consumer-registry.js';
 import {

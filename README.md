@@ -1,4 +1,4 @@
-# @reliable/nest
+# @reliablejs/nest
 
 > **Make database transactions and side-effects reliable.**
 >
@@ -87,13 +87,13 @@ message dispatched                 💥 process crashes
   committed                          lost
 ```
 
-`@reliable/nest` closes this gap by persisting the side-effect in the **same database transaction** as the mutation, through the outbox pattern.
+`@reliablejs/nest` closes this gap by persisting the side-effect in the **same database transaction** as the mutation, through the outbox pattern.
 
 ---
 
 ## Guarantees
 
-`@reliable/nest` deliberately avoids vague distributed-systems guarantees. It does **not** promise global exactly-once execution. Instead:
+`@reliablejs/nest` deliberately avoids vague distributed-systems guarantees. It does **not** promise global exactly-once execution. Instead:
 
 | Layer            | Guarantee              | Mechanism                                                                   |
 | ---------------- | ----------------------- | ---------------------------------------------------------------------------------- |
@@ -124,7 +124,7 @@ Several things already exist and are worth knowing about before reaching for thi
 * **`nestarc/outbox`** already ships a serious lease/fencing/`SKIP LOCKED` dispatcher.
 * **`@nest-native/messaging`** already does Outbox *and* Inbox with transparent CLS binding, on the same `@nestjs-cls/transactional` + Drizzle stack.
 
-If atomic publication or Outbox+Inbox alone is what you need, some of those are more mature than this project. `@reliable/nest` is not trying to replace your queue, and it is not claiming to be the only Outbox/Inbox library for NestJS.
+If atomic publication or Outbox+Inbox alone is what you need, some of those are more mature than this project. `@reliablejs/nest` is not trying to replace your queue, and it is not claiming to be the only Outbox/Inbox library for NestJS.
 
 What none of the above formalize is the narrower thing this project is actually about: **a deterministic `idempotencyKey` contract and a failure-mode matrix, verified against a real database, as part of the product surface** rather than left to each call site. See [Comparison With Existing Solutions](#comparison-with-existing-solutions) for the detailed, sourced breakdown.
 
@@ -187,7 +187,7 @@ Three concepts, never conflated: see [`docs/identity-model.md`](docs/identity-mo
 | [**nestarc/outbox**](https://github.com/nestarc/outbox) | ✅ | ❌ | ⚠️ (free-form metadata, not enforced) | ❌ (explicit `tx` param) | ✅ | ❌ | ❌ (Prisma only) |
 | [**nestjs-inbox-outbox**](https://github.com/Nestixis/nestjs-inbox-outbox) (Nestixis) | ✅ | ✅ | ❌ | ❌ (explicit entities) | ❌ (plain polling) | ❌ | ✅ (TypeORM/MikroORM/Prisma) |
 | [**@nest-native/messaging**](https://github.com/nest-native/messaging) | ✅ | ✅ | ❌ (undocumented) | ✅ (`@nestjs-cls/transactional`) | ⚠️ (undocumented internals) | ❌ | ❌ (Drizzle only, by design) |
-| **@reliable/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | ✅ 16/16 scenarios tested (1 via real process `SIGKILL`); sustained-load chaos run still owed (see [failure-matrix.md](docs/failure-matrix.md)) | 🟡 raw SQL + Drizzle at the storage layer; TypeORM/Prisma/Kysely still roadmap, and `ReliablePublisher` is pg-specific for now |
+| **@reliablejs/nest** | ✅ | ✅ | ✅ (derived, property-tested) | ✅ (`@nestjs-cls/transactional`) | ✅ (documented + tested) | ✅ 16/16 scenarios tested (1 via real process `SIGKILL`); sustained-load chaos run still owed (see [failure-matrix.md](docs/failure-matrix.md)) | 🟡 raw SQL + Drizzle at the storage layer; TypeORM/Prisma/Kysely still roadmap, and `ReliablePublisher` is pg-specific for now |
 
 Two observations, not verdicts:
 
@@ -198,7 +198,7 @@ Two observations, not verdicts:
 
 ## Non-Goals
 
-`@reliable/nest` is intentionally **not**:
+`@reliablejs/nest` is intentionally **not**:
 
 * an exactly-once framework;
 * a general-purpose Redis job queue, or a replacement for BullMQ;
@@ -214,7 +214,7 @@ Two observations, not verdicts:
 
 **MVP / Experimental.** Validating one hypothesis: would NestJS developers prefer a small, composable reliability layer for transactional side-effects over building Outbox + Inbox + retry + idempotency plumbing themselves? The API and guarantees may change before v1.0. Feedback from experienced NestJS/backend engineers is especially valuable.
 
-CI runs build, typecheck, the full test suite (Testcontainers Postgres, no mocks), and the `@reliable/core` zero-dependency architecture check on every push. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+CI runs build, typecheck, the full test suite (Testcontainers Postgres, no mocks), and the `@reliablejs/core` zero-dependency architecture check on every push. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ---
 

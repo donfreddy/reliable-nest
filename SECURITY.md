@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-`@reliable/nest` is currently in **MVP / experimental stage**.
+`@reliablejs/nest` is currently in **MVP / experimental stage**.
 
 Security fixes are applied to the latest version under active development.
 
@@ -67,7 +67,7 @@ If you are unsure whether an issue is security-sensitive, report it privately.
 
 ## Reliability vs. Security
 
-`@reliable/nest` provides **reliability primitives**, not a complete security boundary.
+`@reliablejs/nest` provides **reliability primitives**, not a complete security boundary.
 
 For example:
 
@@ -255,7 +255,7 @@ The exact timeline may vary depending on severity and complexity.
 
 Security-related changes should be documented in the project's changelog and, when appropriate, through a GitHub Security Advisory.
 
-Users should keep their dependencies and `@reliable/nest` packages up to date.
+Users should keep their dependencies and `@reliablejs/nest` packages up to date.
 
 ---
 
@@ -263,9 +263,9 @@ Users should keep their dependencies and `@reliable/nest` packages up to date.
 
 This policy applies to:
 
-* `@reliable/core`;
-* `@reliable/postgres`;
-* `@reliable/nest`;
+* `@reliablejs/core`;
+* `@reliablejs/postgres`;
+* `@reliablejs/nest`;
 * official repository infrastructure and release artifacts.
 
 Third-party applications built using Reliable are responsible for their own application-level security configuration.

@@ -1,6 +1,6 @@
-# Contributing to @reliable/nest
+# Contributing to @reliablejs/nest
 
-Thanks for your interest in contributing to `@reliable/nest`.
+Thanks for your interest in contributing to `@reliablejs/nest`.
 
 The project is currently in **MVP / experimental stage**. The API, architecture, and guarantees may change before the first stable release.
 

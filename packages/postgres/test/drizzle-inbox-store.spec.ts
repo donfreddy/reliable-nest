@@ -1,4 +1,4 @@
-import type { MessageId } from '@reliable/core';
+import type { MessageId } from '@reliablejs/core';
 import { randomUUID } from 'node:crypto';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';

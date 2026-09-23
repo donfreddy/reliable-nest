@@ -1,6 +1,6 @@
 # Benchmarks
 
-Reference numbers, not promises. Run `pnpm --filter @reliable/postgres bench`
+Reference numbers, not promises. Run `pnpm --filter @reliablejs/postgres bench`
 to reproduce on your own hardware; these are not gated in CI and will drift
 with Postgres version, disk, and load. The point is not the exact numbers,
 it's confirming the architectural bet in

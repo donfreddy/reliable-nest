@@ -1,4 +1,4 @@
-import type { InboxStore, MessageId, ReliableContext } from '@reliable/core';
+import type { InboxStore, MessageId, ReliableContext } from '@reliablejs/core';
 import type { Pool } from 'pg';
 import { fromReliableContext } from '../context.js';
 

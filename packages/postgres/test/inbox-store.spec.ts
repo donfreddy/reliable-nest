@@ -1,4 +1,4 @@
-import type { MessageId } from '@reliable/core';
+import type { MessageId } from '@reliablejs/core';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';

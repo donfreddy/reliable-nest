@@ -2,7 +2,7 @@
 
 This is the contract, not a design note. Every row below must eventually be a
 named, CI-green test (`F<n>_<slug>`). At Etape 0 these tests do not exist yet
-because the packages they exercise (`@reliable/postgres`, `@reliable/nest`)
+because the packages they exercise (`@reliablejs/postgres`, `@reliablejs/nest`)
 have not been built. This document fixes the name and the expected behavior
 now, before the implementation, so the implementation is written against a
 frozen target instead of a moving one.

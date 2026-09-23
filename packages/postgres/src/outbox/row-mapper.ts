@@ -1,4 +1,4 @@
-import type { MessageStatus, ReliableMessage } from '@reliable/core';
+import type { MessageStatus, ReliableMessage } from '@reliablejs/core';
 
 /** Shape of a `reliable_outbox` row as `pg` returns it (jsonb columns already parsed). */
 export interface OutboxRow {

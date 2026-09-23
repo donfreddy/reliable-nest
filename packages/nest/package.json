@@ -1,7 +1,7 @@
 {
-  "name": "@reliable/nest",
+  "name": "@reliablejs/nest",
   "version": "0.1.0",
-  "description": "NestJS integration for @reliable/core: ReliableModule, ReliablePublisher, @ReliableConsumer.",
+  "description": "NestJS integration for @reliablejs/core: ReliableModule, ReliablePublisher, @ReliableConsumer.",
   "type": "module",
   "license": "MIT",
   "author": "Don Freddy",
@@ -34,8 +34,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@reliable/core": "workspace:^",
-    "@reliable/postgres": "workspace:^"
+    "@reliablejs/core": "workspace:^",
+    "@reliablejs/postgres": "workspace:^"
   },
   "peerDependencies": {
     "@nestjs-cls/transactional": "^4.0.0",

@@ -1,6 +1,6 @@
-# @reliable/core
+# @reliablejs/core
 
-Pure TypeScript contracts for [`@reliable/nest`](../nest). Zero runtime
+Pure TypeScript contracts for [`@reliablejs/nest`](../nest). Zero runtime
 dependencies, enforced by `pnpm check:arch` (dependency-cruiser) and by a
 test asserting `package.json` declares none.
 

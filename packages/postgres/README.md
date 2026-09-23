@@ -1,7 +1,7 @@
-# @reliable/postgres
+# @reliablejs/postgres
 
 PostgreSQL implementation of the `OutboxStore`/`InboxStore` ports from
-[`@reliable/core`](../core). Raw SQL via [`pg`](https://node-postgres.com)
+[`@reliablejs/core`](../core). Raw SQL via [`pg`](https://node-postgres.com)
 by default, no ORM required; a Drizzle adapter is available as a separate
 entry point for apps that already use Drizzle.
 
@@ -14,7 +14,7 @@ src/
 ├── context.ts    bridges a pg connection to core's opaque ReliableContext
 ├── notify/       PostgresListener + createPostgresWakeUp: optional LISTEN/NOTIFY latency shortcut
 └── drizzle/      DrizzleOutboxStore/DrizzleInboxStore, published at the
-                  "@reliable/postgres/drizzle" subpath so raw-pg consumers
+                  "@reliablejs/postgres/drizzle" subpath so raw-pg consumers
                   never pull drizzle-orm in as a dependency
 ```
 
@@ -29,7 +29,7 @@ const outboxStore = new PostgresOutboxStore(pool, new Uuidv7Generator(), {
 `enqueue` then runs `pg_notify` on the same connection as the insert, so
 Postgres only delivers it on commit and drops it on rollback: the wake
 signal inherits the enqueue's own atomicity for free. Pair with
-`createPostgresWakeUp(clientConfig, channel)` on `@reliable/nest`'s
+`createPostgresWakeUp(clientConfig, channel)` on `@reliablejs/nest`'s
 `ReliableModule.forRoot({ wakeUp: ... })` to cut dispatch latency below
 `pollIntervalMs`.
 
@@ -41,7 +41,7 @@ it: if the channel is never configured, the listener connection drops, or
 ## Drizzle adapter
 
 ```ts
-import { DrizzleOutboxStore, DrizzleInboxStore, toReliableContext } from '@reliable/postgres/drizzle';
+import { DrizzleOutboxStore, DrizzleInboxStore, toReliableContext } from '@reliablejs/postgres/drizzle';
 import { drizzle } from 'drizzle-orm/node-postgres';
 
 const db = drizzle(pool);
@@ -59,7 +59,7 @@ exact SQL avoids two implementations drifting apart. `drizzle-orm` is a
 peer dependency, not a hard one, and `dist/drizzle/` never gets loaded by
 code that only imports the package root.
 
-This covers the storage layer. `@reliable/nest`'s `ReliablePublisher` is
+This covers the storage layer. `@reliablejs/nest`'s `ReliablePublisher` is
 currently wired to `TransactionalAdapterPg` specifically; using this
 Drizzle store from NestJS with `@nestjs-cls/transactional-adapter-drizzle-orm`
 instead works for direct calls to the store, but generalizing

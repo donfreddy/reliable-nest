@@ -1,5 +1,5 @@
 {
-  "name": "@reliable/core",
+  "name": "@reliablejs/core",
   "version": "0.1.0",
   "description": "Pure TypeScript contracts for reliable side-effects. Zero runtime dependencies.",
   "type": "module",
