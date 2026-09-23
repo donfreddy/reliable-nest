@@ -1,0 +1,31 @@
+{
+  "name": "@reliable/core",
+  "version": "0.0.0",
+  "description": "Pure TypeScript contracts for reliable side-effects. Zero runtime dependencies.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "check:arch": "depcruise src --config .dependency-cruiser.cjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "dependency-cruiser": "^16.10.0",
+    "fast-check": "^3.23.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.9"
+  }
+}
