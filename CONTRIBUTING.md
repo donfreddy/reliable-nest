@@ -305,3 +305,9 @@ Technical disagreement is welcome. Personal attacks, harassment, discrimination,
 ## License
 
 By contributing to this repository, you agree that your contributions will be licensed under the same [MIT License](LICENSE) that covers the project.
+
+---
+
+## Releasing
+
+Maintainer-only concern, not a contributor one: see [RELEASING.md](RELEASING.md).

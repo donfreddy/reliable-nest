@@ -1,9 +1,20 @@
 {
   "name": "@reliable/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Pure TypeScript contracts for reliable side-effects. Zero runtime dependencies.",
   "type": "module",
   "license": "MIT",
+  "author": "Don Freddy",
+  "homepage": "https://github.com/donfreddy/reliable-nest#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/donfreddy/reliable-nest.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/donfreddy/reliable-nest/issues"
+  },
+  "keywords": ["outbox", "inbox", "transactional-outbox", "reliability", "idempotency"],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -14,6 +25,9 @@
   },
   "files": ["dist"],
   "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

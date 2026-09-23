@@ -29,10 +29,10 @@ importers:
   packages/nest:
     dependencies:
       '@reliable/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@reliable/postgres':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../postgres
     devDependencies:
       '@nestjs-cls/transactional':
@@ -84,7 +84,7 @@ importers:
   packages/postgres:
     dependencies:
       '@reliable/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       pg:
         specifier: ^8.13.1
