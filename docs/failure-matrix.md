@@ -22,8 +22,8 @@ Source of truth for the scenarios themselves: CDC_Technique.md §3.4.
 | F9 | Crash before consumer TX COMMIT | No inbox row | Redelivery -> full replay | Correct | `packages/postgres/test/inbox-store.spec.ts` ("F9") | done |
 | F10 | GC pause / STW longer than the lease (zombie worker) | Two workers active on the same message | Fencing: `UPDATE ... WHERE leased_by = $me AND leased_until > now()` returns 0 rows, the zombie backs off | The second effect is absorbed by the inbox or the provider | `packages/postgres/test/outbox-store.spec.ts` ("F10") | done |
 | F11 | Clock drift between workers | A lease is judged expired incorrectly | Every time comparison uses Postgres `now()`, never `Date.now()` | Neutralized | `packages/postgres/test/outbox-store.spec.ts` ("F11") | done |
-| F12 | Multiple dispatcher instances | Concurrent access to the same batch | `FOR UPDATE SKIP LOCKED` disjoints the batches inside the same lease transaction | No double lease | `packages/postgres/test/outbox-store.spec.ts` ("F12") | done (200 rows, 2 concurrent leasers; 1M-row scale benchmark still owed) |
-| F13 | Poison message (deterministic failure) | `attempts >= max_attempts` | Transition to `dead`, retries stop, `onDeadLetter` hook fires | Isolated, no infinite loop | `packages/postgres/test/outbox-store.spec.ts` ("F13") | done (state transition only; `onDeadLetter` hook is `@reliable/nest` scope) |
+| F12 | Multiple dispatcher instances | Concurrent access to the same batch | `FOR UPDATE SKIP LOCKED` disjoints the batches inside the same lease transaction | No double lease | `packages/postgres/test/outbox-store.spec.ts` ("F12") + `packages/postgres/bench/lease-throughput.ts` | done (correctness at 200 rows; throughput/index-size reference numbers at 1M rows in [`docs/benchmarks.md`](benchmarks.md)) |
+| F13 | Poison message (deterministic failure) | `attempts >= max_attempts` | Transition to `dead`, retries stop, `onDeadLetter` hook fires | Isolated, no infinite loop | `packages/postgres/test/outbox-store.spec.ts` ("F13") + `packages/nest/test/dead-letter.e2e.spec.ts` | done |
 | F14 | `NOTIFY` lost (no listener connected) | A pending message goes unsignaled | Polling remains the source of truth | Latency up, no loss | `F14_lost_notify_falls_back_to_polling` | owed (NOTIFY not wired yet) |
 | F15 | Graceful shutdown (SIGTERM) | Messages leased in flight | `onApplicationShutdown`: stop polling, drain up to `shutdownTimeoutMs`, then release via `markFailed(..., retryAt: now)` | Immediate failover instead of waiting for lease expiry | `packages/nest/test/shutdown.e2e.spec.ts` | done |
 | F16 | Disk saturation / table bloat | Dispatcher slows down | Batched purge of delivered rows + aggressive autovacuum | Controlled degradation | `F16_purge_under_bloat` | owed (`purgeDelivered` exists, untested at scale) |
@@ -32,12 +32,13 @@ Source of truth for the scenarios themselves: CDC_Technique.md §3.4.
 
 10 of 16 rows (F1, F3, F4, F8, F9, F10, F11, F12, F13, F15) are real,
 CI-runnable tests against a Testcontainers Postgres 16 instance and (for
-F15) a real NestJS testing application, not mocks. The remaining 6 need
-pieces that do not exist yet: a mocked external provider (F6/F7), `LISTEN`/
-`NOTIFY` wiring (F14), and scale/throughput harnesses (F2 end-to-end via the
-poll loop under load, F16 at bloat scale). The 1M-row benchmark named in the
-Etape 1 DoD is also still owed; F12 today proves correctness at 200 rows,
-not throughput at scale.
+F15, F13's `onDeadLetter` half) a real NestJS testing application, not
+mocks. The remaining 6 need pieces that do not exist yet: a mocked
+external provider (F6/F7), `LISTEN`/`NOTIFY` wiring (F14), and a
+poll-loop-under-load harness (F2) and bloat-scale purge test (F16). The
+1M-row benchmark named in the Etape 1 DoD is done, not gated in CI (it is
+a reference measurement, not a pass/fail correctness test): see
+[`docs/benchmarks.md`](benchmarks.md).
 
 The identity layer feeding F6/F7 is already solid: `deriveIdempotencyKey` is
 property-tested in `packages/core/test/identity.spec.ts` (determinism,
