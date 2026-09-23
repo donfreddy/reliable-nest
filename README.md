@@ -710,7 +710,9 @@ reliable-nest/
 │
 ├── docs/
 │   ├── architecture.md
-│   └── guarantees-and-failure-modes.md
+│   ├── guarantees-and-failure-modes.md
+│   ├── failure-matrix.md
+│   └── identity-model.md
 │
 ├── tests/
 │
